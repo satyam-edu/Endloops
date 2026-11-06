@@ -41,7 +41,7 @@ function ramp(from: number, to: number, x: number) {
 // The track: a long oval with a gentle wave. It is deliberately not a figure-eight,
 // because that shape would read as a redrawn copy of the logo.
 const TRACK_X = 7.2;
-const TRACK_Z = 3.4;
+const TRACK_Z = 4;
 function trackPoint(u: number, out: Vector3) {
   return out.set(TRACK_X * Math.cos(u), 0.28 * Math.sin(3 * u), TRACK_Z * Math.sin(u));
 }
@@ -54,18 +54,25 @@ function buildTrack(color: string) {
   const indices: number[] = [];
   const point = new Vector3();
   const segments = 256;
-  const halfWidth = 0.85;
+  const halfWidth = 0.95;
+  const thickness = 0.32;
   for (let i = 0; i <= segments; i++) {
     const u = (i / segments) * Math.PI * 2;
     trackPoint(u, point);
     const yaw = trackYaw(u);
     const sideX = Math.cos(yaw) * halfWidth;
     const sideZ = -Math.sin(yaw) * halfWidth;
-    positions.push(point.x + sideX, point.y - 0.03, point.z + sideZ);
-    positions.push(point.x - sideX, point.y - 0.03, point.z - sideZ);
+    const top = point.y - 0.03;
+    // Four corners of the slab at this point along the track.
+    positions.push(point.x + sideX, top, point.z + sideZ);
+    positions.push(point.x - sideX, top, point.z - sideZ);
+    positions.push(point.x + sideX, top - thickness, point.z + sideZ);
+    positions.push(point.x - sideX, top - thickness, point.z - sideZ);
     if (i < segments) {
-      const a = i * 2;
-      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      const a = i * 4;
+      indices.push(a, a + 4, a + 1, a + 1, a + 4, a + 5); // top
+      indices.push(a, a + 2, a + 4, a + 2, a + 6, a + 4); // one side wall
+      indices.push(a + 1, a + 5, a + 3, a + 3, a + 5, a + 7); // other side wall
     }
   }
   const geometry = new BufferGeometry();
@@ -74,7 +81,30 @@ function buildTrack(color: string) {
   geometry.computeVertexNormals();
   const mesh = new Mesh(geometry, new MeshLambertMaterial({ color, side: 2 }));
   mesh.receiveShadow = true;
+  mesh.castShadow = true;
   return mesh;
+}
+
+// Ruler marks along the track edge, like the graduations on an audit ledger.
+function buildRulerMarks(color: string) {
+  const count = 280;
+  const marks = new InstancedMesh(
+    new BoxGeometry(0.16, 0.004, 0.018),
+    new MeshBasicMaterial({ color }),
+    count,
+  );
+  const dummy = new Object3D();
+  const point = new Vector3();
+  for (let i = 0; i < count; i++) {
+    const u = (i / count) * Math.PI * 2;
+    trackPoint(u, point);
+    const yaw = trackYaw(u);
+    dummy.position.set(point.x + Math.cos(yaw) * 0.84, point.y - 0.02, point.z - Math.sin(yaw) * 0.84);
+    dummy.rotation.y = yaw;
+    dummy.updateMatrix();
+    marks.setMatrixAt(i, dummy.matrix);
+  }
+  return marks;
 }
 
 // The small printed look shared by every sheet on the track.
@@ -193,20 +223,23 @@ function buildLedgerTexture(colours: Colours) {
 // Where the camera and the working paper sit at each stage.
 const FACING = new Quaternion().setFromEuler(new Euler(-0.04, -0.08, 0.015));
 const FLAT = new Quaternion().setFromEuler(new Euler(-Math.PI / 2, 0, 0));
+const STACK_X = 1.4; // where the sheets pile up at the draft stage
 const poses = [
-  { camera: [0, 8.5, 12.5], look: [0, 0, 0], paper: [0, 0, 0], turn: FLAT },
-  { camera: [0, 2.6, 9.6], look: [0, 2.2, 3], paper: [0, 2.2, 3], turn: FACING },
-  { camera: [0, 2.6, 13], look: [0, 2.2, 3], paper: [-1.3, 2.2, 3], turn: FACING },
-  { camera: [0, 6, 13], look: [0, 0.8, 0], paper: [0, 2.1, 0], turn: FACING },
-  { camera: [0, 8.5, 7.5], look: [0, 0.3, 0], paper: [0, 0.62, 0], turn: FLAT },
-  { camera: [0, 13, 17], look: [0, 0, 0], paper: [0, 0.62, 0], turn: FLAT },
-  { camera: [0, 2.4, 9.8], look: [0, 2.2, 3], paper: [0, 2.2, 3], turn: FACING },
+  { camera: [0, 15, 5.5], look: [0, 0, 0.2], paper: [0, 0, 0], turn: FLAT, size: 1 },
+  { camera: [0.6, 3, 10], look: [0.6, 2.2, 3], paper: [0.9, 1.7, 3], turn: FACING, size: 1 },
+  { camera: [-0.3, 2.8, 11], look: [-0.3, 2.2, 3], paper: [-1, 1.6, 3], turn: FACING, size: 1 },
+  { camera: [0, 7, 12.5], look: [0, 1.5, 0], paper: [-2.6, 2.1, 0.6], turn: FACING, size: 1 },
+  { camera: [-0.6, 6.2, 4.4], look: [-0.6, 0.3, 0.1], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 1 },
+  { camera: [0, 15, 5.5], look: [0, 0, 0.2], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 0.001 },
+  { camera: [-1, 3, 10.5], look: [0, 2.45, 3], paper: [0, 2.2, 3], turn: FACING, size: 1 },
 ];
 
 export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => number): LoopScene {
   const mobile = window.innerWidth < 768;
   const sheetCount = mobile ? 60 : 400;
-  const heroCount = mobile ? 18 : 44;
+  const heroCount = mobile ? 14 : 30;
+  const narrow = mobile ? 0.3 : 1; // phones pull everything towards the centre of the frame
+  const stackX = STACK_X * narrow;
   const colours: Colours = {
     navy: token("navy"),
     slate: token("slate"),
@@ -243,11 +276,12 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   scene.add(ground);
 
   scene.add(buildTrack(colours.navy));
+  scene.add(buildRulerMarks(colours.slate));
 
   // Sheets on the track: one instanced mesh, so hundreds of sheets cost one draw call.
   const sheetTexture = buildSheetTexture(colours.line);
   const sheets = new InstancedMesh(
-    new BoxGeometry(0.8, 0.012, 1.1),
+    new BoxGeometry(0.95, 0.012, 1.3),
     new MeshLambertMaterial({ map: sheetTexture }),
     sheetCount,
   );
@@ -316,7 +350,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   };
   document.fonts.load('500 38px "IBM Plex Mono"').then(() => paperStage >= 0 && redrawPaper());
 
-  // Sizing. The scene shifts right on desktop to leave room for the text, and up on phones.
+  // Sizing. The scene fills the screen on desktop, and shifts up on phones to sit above the text.
   const resize = () => {
     const parent = canvas.parentElement!;
     const width = parent.clientWidth;
@@ -325,8 +359,8 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     camera.aspect = width / height;
     const stacked = width < 1024; // matches the lg: breakpoint in Home.tsx
     camera.fov = stacked ? 46 : 32;
-    if (stacked) camera.setViewOffset(width, height, 0, height * 0.24, width, height);
-    else camera.setViewOffset(width, height, -width * 0.22, 0, width, height);
+    if (stacked) camera.setViewOffset(width, height, 0, height * 0.07, width, height);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   };
   const resizeObserver = new ResizeObserver(resize);
@@ -342,6 +376,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
 
   // Reused every frame, so the loop creates no garbage.
   const dummy = new Object3D();
+  dummy.rotation.order = "YXZ"; // turn along the track first, then tilt
   const point = new Vector3();
   const cameraPosition = new Vector3();
   const cameraLook = new Vector3();
@@ -351,7 +386,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   const flatOnTrack = new Quaternion();
   const white = new Color(0xffffff);
   const paleGreen = new Color(colours.bright).lerp(white, 0.68);
-  const paleAmber = new Color(colours.amber).lerp(white, 0.25);
+  const paleAmber = new Color(colours.amber).lerp(white, 0.5);
   const tint = new Color();
 
   let stage = getStage();
@@ -376,7 +411,9 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     travel += dt * speed;
 
     const gather = ramp(3.3, 3.95, stage) * (1 - ramp(4.1, 4.8, stage));
-    const crowd = ramp(4.2, 5, stage);
+    const crowd = ramp(4.2, 5, stage) * (1 - ramp(5.2, 5.8, stage) * (1 - resume));
+    // Sheets lie flat in the close-ups, where a tilted sheet near the camera looks like a spike.
+    const closeUp = Math.max(ramp(0.3, 0.9, stage) * (1 - ramp(2.1, 2.7, stage)), ramp(5.2, 5.8, stage));
     const checked = ramp(2.3, 3, stage);
     const tip = checked * (1 - ramp(3.4, 3.9, stage));
 
@@ -393,12 +430,14 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
       // Hero sheets leave the track and stack up under the working paper at the draft stage.
       const g = hero ? gather : 0;
       dummy.position.set(
-        x * (1 - g),
-        (point.y + (isFlagged ? tip * 0.3 : 0)) * (1 - g) + g * (0.06 + i * 0.012),
+        x * (1 - g) + stackX * g,
+        (point.y + 0.3 * (1 - closeUp) + (isFlagged ? tip * 0.35 : 0)) * (1 - g) + g * (0.06 + i * 0.012),
         z * (1 - g),
       );
-      dummy.rotation.set(isFlagged ? tip * 0.3 : 0, yaw * (1 - g), isFlagged ? tip * 0.45 : 0);
-      const size = (hero ? 1 : crowd * 0.55) * (1 + g * 1.62);
+      // Sheets ride tilted, like files on a conveyor, and lie flat once stacked.
+      const tilt = -0.6 * (1 - g) * (1 - closeUp);
+      dummy.rotation.set(tilt + (isFlagged ? tip * 0.3 : 0), yaw * (1 - g), isFlagged ? tip * 0.45 : 0);
+      const size = (hero ? 1 : crowd * 0.55) * (1 + g * 1.24);
       dummy.scale.setScalar(Math.max(size, 0.0001));
       dummy.updateMatrix();
       sheets.setMatrixAt(i, dummy.matrix);
@@ -410,6 +449,8 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     sheets.instanceMatrix.needsUpdate = true;
     sheets.instanceColor!.needsUpdate = true;
 
+    const compare = ramp(1.35, 1.9, stage) * (1 - ramp(2.2, 2.7, stage));
+
     // Blend between the two nearest poses.
     const index = Math.min(Math.floor(stage), poses.length - 2);
     const blend = ramp(0, 1, stage - index);
@@ -418,10 +459,19 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     cameraPosition.lerpVectors(from.fromArray(a.camera), to.fromArray(b.camera), blend);
     cameraLook.lerpVectors(from.fromArray(a.look), to.fromArray(b.look), blend);
 
+    if (mobile) {
+      // Slide the view towards the near side at the draft stage, so the far track clears the word.
+      const draft = ramp(3.4, 3.9, stage) * (1 - ramp(4.1, 4.7, stage));
+      cameraPosition.x *= narrow;
+      cameraLook.x *= narrow;
+      cameraPosition.z += draft;
+      cameraLook.z += draft;
+    }
+
     parallaxX += (pointer.x - parallaxX) * 0.05;
     parallaxY += (pointer.y - parallaxY) * 0.05;
     const still = 1 - ramp(5.1, 5.85, stage);
-    camera.position.copy(cameraPosition).sub(cameraLook).multiplyScalar(mobile ? 1.2 : 1).add(cameraLook);
+    camera.position.copy(cameraPosition).sub(cameraLook).multiplyScalar(mobile ? 1.2 + compare * 0.55 : 1).add(cameraLook);
     camera.position.x += parallaxX * 0.7 * still;
     camera.position.y -= parallaxY * 0.35 * still;
     camera.lookAt(cameraLook);
@@ -434,16 +484,16 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
       flatOnTrack.setFromEuler(new Euler(-Math.PI / 2, trackYaw(u), 0, "YXZ"));
       paper.position.lerpVectors(point, to.fromArray(b.paper), blend);
       turn.copy(flatOnTrack).slerp(b.turn, blend);
-      paper.scale.setScalar(0.38 + 0.62 * blend);
+      paper.scale.setScalar(0.45 + (b.size - 0.45) * blend);
     } else {
       paper.position.lerpVectors(from.fromArray(a.paper), to.fromArray(b.paper), blend);
       turn.copy(a.turn).slerp(b.turn, blend);
-      paper.scale.setScalar(1);
+      paper.scale.setScalar(a.size + (b.size - a.size) * blend);
     }
+    if (mobile) paper.position.x = paper.position.x * narrow - compare; // centres the pair at compare
     paper.quaternion.copy(turn);
 
     // Ledger and link lines exist only around the compare stage.
-    const compare = ramp(1.35, 1.9, stage) * (1 - ramp(2.2, 2.7, stage));
     ledger.visible = compare > 0.001;
     ledger.scale.setScalar(Math.max(compare, 0.001));
     ledger.position.x = linkStart + (2.6 - linkStart) * compare;

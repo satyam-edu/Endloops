@@ -95,12 +95,6 @@ html {
   }
 }
 
-/* Solid behind the text column, then fades out so the scene shows on the right. */
-.scene-scrim {
-  --text-end: calc(max(0px, 50vw - 640px) + 24px + 34rem);
-  background: linear-gradient(to right, var(--color-mist) var(--text-end), transparent calc(var(--text-end) + 12rem));
-}
-
 /* The audit tick draws itself. pathLength="1" on the path makes the dash maths simple. */
 .tick-draw path {
   stroke-dasharray: 1;
