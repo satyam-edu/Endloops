@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import Tick from "../components/Tick";
+import HomeSections from "../home/HomeSections";
 import type { LoopScene } from "../home/loopScene";
 
 // Each stage's title is split in two: the first part is set huge behind the 3D scene.
@@ -56,7 +57,8 @@ const viewport = "h-[calc(100svh-var(--nav))]";
 // Each stage is taller than the screen, so its text holds still for a moment while the scene moves.
 const stageClass = "relative h-[170svh] motion-reduce:h-auto motion-reduce:py-12";
 const stickyClass = `pointer-events-none sticky top-(--nav) ${viewport} motion-reduce:static motion-reduce:h-auto`;
-const wordLayer = `${stickyClass} z-0 -mb-[calc(100svh-var(--nav))] overflow-hidden px-6 pt-4 motion-reduce:mb-0`;
+const wordWrapper = "pointer-events-none absolute inset-0 z-0 motion-reduce:static";
+const wordLayer = `sticky top-(--nav) ${viewport} overflow-hidden px-6 pt-4 motion-reduce:static motion-reduce:h-auto`;
 const wordText = "font-display leading-[0.95] tracking-tight";
 const copyCard =
   "pointer-events-auto absolute inset-x-0 bottom-0 bg-mist px-6 pb-8 pt-5 lg:inset-x-auto lg:bottom-10 lg:w-[23rem] lg:px-5 lg:pb-5 motion-reduce:static motion-reduce:w-auto";
@@ -114,94 +116,100 @@ export default function Home() {
   };
 
   return (
-    <section ref={section} aria-label="How Endloops works" className="relative bg-mist">
-      {/* Layers, back to front: huge words (z-0), the 3D canvas (z-10), readable text (z-20).
-          The canvas is see-through, so the paper really does pass in front of the words.
-          It is pinned by CSS sticky, so the browser's normal scrolling is never touched. */}
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none sticky top-(--nav) z-10 -mb-[calc(100svh-var(--nav))] ${viewport} overflow-hidden motion-reduce:hidden`}
-      >
-        <canvas
-          ref={canvas}
-          className={`h-full w-full transition-opacity duration-700 ${sceneReady ? "opacity-100" : "opacity-0"}`}
-        />
-      </div>
-
-      <div className={stageClass}>
-        <div className={`${stickyClass} z-20`}>
-          <div className="pointer-events-auto absolute inset-x-0 bottom-0 bg-mist px-6 pb-6 pt-4 lg:inset-0 lg:flex lg:flex-col lg:items-center lg:justify-center lg:bg-transparent lg:text-center motion-reduce:static">
-            <p className="font-mono text-sm text-green">
-              Automation for accounting, audit and property finance
-            </p>
-            <h1 className="mt-3 font-display text-(length:--text-display) leading-[1.02] tracking-tight lg:text-[5.4vw]">
-              <span className="block">The work gets prepared.</span>
-              <span className="block">The decision stays yours.</span>
-            </h1>
-            <p className="mt-4 max-w-[34rem] text-slate">
-              Endloops reads the documents, matches the ledgers, flags the exceptions and drafts the
-              working papers. Your team reviews, decides and signs off.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link to="/contact" className="btn btn-primary">
-                Talk to us
-              </Link>
-              <a href="#read" className="btn btn-secondary">
-                See how it works
-              </a>
-            </div>
-            <p className="mt-4 text-sm text-slate">
-              For accountants, auditors, finance teams and property management companies.
-            </p>
+    <>
+      <section ref={section} aria-label="How Endloops works" className="relative bg-mist">
+        {/* Layers, back to front: huge words (z-0), the 3D canvas (z-10), readable text (z-20).
+            The canvas is see-through, so the paper really does pass in front of the words.
+            It is pinned by CSS sticky, so the browser's normal scrolling is never touched. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 motion-reduce:hidden">
+          <div className={`sticky top-(--nav) ${viewport} overflow-hidden`}>
+            <canvas
+              ref={canvas}
+              className={`h-full w-full transition-opacity duration-700 ${sceneReady ? "opacity-100" : "opacity-0"}`}
+            />
           </div>
         </div>
-      </div>
 
-      {stages.map((stage, index) => (
-        <article key={stage.ref} id={index === 0 ? "read" : undefined} className={stageClass}>
-          <div aria-hidden="true" className={wordLayer}>
-            <p className={`${wordText} ${stage.wordClass}`}>{stage.word}</p>
+        <div className={stageClass}>
+          <div className={`${stickyClass} z-20`}>
+            <div className="pointer-events-auto absolute inset-x-0 bottom-0 bg-mist px-6 pb-6 pt-4 lg:inset-0 lg:flex lg:flex-col lg:items-center lg:justify-center lg:bg-transparent lg:text-center motion-reduce:static">
+              <p className="font-mono text-sm text-green">
+                Automation for accounting, audit and property finance
+              </p>
+              <h1 className="mt-3 font-display text-(length:--text-display) leading-[1.02] tracking-tight lg:text-[5.4vw]">
+                <span className="block">The work gets prepared.</span>
+                <span className="block">The decision stays yours.</span>
+              </h1>
+              <p className="mt-4 max-w-[34rem] text-slate">
+                Endloops reads the documents, matches the ledgers, flags the exceptions and drafts the
+                working papers. Your team reviews, decides and signs off.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link to="/contact" className="btn btn-primary">
+                  Talk to us
+                </Link>
+                <a href="#read" className="btn btn-secondary">
+                  See how it works
+                </a>
+              </div>
+              <p className="mt-4 text-sm text-slate">
+                For accountants, auditors, finance teams and property management companies.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {stages.map((stage, index) => (
+          <article key={stage.ref} id={index === 0 ? "read" : undefined} className={stageClass}>
+            <div aria-hidden="true" className={wordWrapper}>
+              <div className={wordLayer}>
+                <p className={`${wordText} ${stage.wordClass}`}>{stage.word}</p>
+              </div>
+            </div>
+            <div className={`${stickyClass} z-20`}>
+              <div className={`${copyCard} ${stage.copyClass} ${stage.note ? paperNote : ""}`}>
+                <p className="font-mono text-sm text-green">{stage.ref}</p>
+                <h2 className={copyTitle}>
+                  <span className="sr-only">{stage.word} </span>
+                  {stage.rest}
+                </h2>
+                <p className="mt-3 text-slate">{stage.body}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+
+        <article className={stageClass}>
+          <div aria-hidden="true" className={wordWrapper}>
+            <div className={wordLayer}>
+              <p className={`${wordText} text-[11vw] lg:text-left`}>Then it stops,</p>
+            </div>
           </div>
           <div className={`${stickyClass} z-20`}>
-            <div className={`${copyCard} ${stage.copyClass} ${stage.note ? paperNote : ""}`}>
-              <p className="font-mono text-sm text-green">{stage.ref}</p>
+            <div className={`${copyCard} ${paperNote} lg:left-6`}>
+              <p className="font-mono text-sm text-green">A7</p>
               <h2 className={copyTitle}>
-                <span className="sr-only">{stage.word} </span>
-                {stage.rest}
+                <span className="sr-only">Then it stops, </span>
+                and waits for you.
               </h2>
-              <p className="mt-3 text-slate">{stage.body}</p>
+              <p className="mt-3 text-slate">The final sign-off always stays with people.</p>
+              <div ref={signOffStatus} tabIndex={-1} className="mt-5 min-h-12" role="status">
+                {signed ? (
+                  <p className="flex items-center gap-3 font-medium">
+                    <Tick draw className="h-8 w-10 shrink-0 text-green" />
+                    Signed off by you. That's how it should work.
+                  </p>
+                ) : (
+                  <button type="button" onClick={signOff} className="btn btn-primary">
+                    Sign off
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </article>
-      ))}
-
-      <article className={stageClass}>
-        <div aria-hidden="true" className={wordLayer}>
-          <p className={`${wordText} text-[11vw] lg:text-left`}>Then it stops,</p>
-        </div>
-        <div className={`${stickyClass} z-20`}>
-          <div className={`${copyCard} ${paperNote} lg:left-6`}>
-            <p className="font-mono text-sm text-green">A7</p>
-            <h2 className={copyTitle}>
-              <span className="sr-only">Then it stops, </span>
-              and waits for you.
-            </h2>
-            <p className="mt-3 text-slate">The final sign-off always stays with people.</p>
-            <div ref={signOffStatus} tabIndex={-1} className="mt-5 min-h-12" role="status">
-              {signed ? (
-                <p className="flex items-center gap-3 font-medium">
-                  <Tick draw className="h-8 w-10 shrink-0 text-green" />
-                  Signed off by you. That's how it should work.
-                </p>
-              ) : (
-                <button type="button" onClick={signOff} className="btn btn-primary">
-                  Sign off
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </article>
-    </section>
+      </section>
+      <HomeSections />
+    </>
   );
 }

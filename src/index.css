@@ -52,12 +52,26 @@ html {
   outline-offset: 3px;
 }
 
+.on-navy :focus-visible {
+  outline-color: var(--color-white);
+}
+
 /* Elements focused by code, not by tabbing, don't need a ring. */
 [tabindex="-1"]:focus-visible {
   outline: none;
 }
 
 @layer components {
+  .page {
+    margin-inline: auto;
+    max-width: 1280px;
+    padding-inline: 24px;
+  }
+
+  .section {
+    padding-block: clamp(96px, 12vw, 180px);
+  }
+
   .btn {
     display: inline-flex;
     min-height: 48px;
@@ -82,6 +96,21 @@ html {
 
   .btn-primary:hover {
     background: var(--color-navy);
+  }
+
+  .btn:disabled {
+    background: var(--color-line);
+    color: var(--color-slate);
+    cursor: not-allowed;
+  }
+
+  .btn-light {
+    background: var(--color-white);
+    color: var(--color-navy);
+  }
+
+  .btn-light:hover {
+    background: var(--color-mist);
   }
 
   .btn-secondary {

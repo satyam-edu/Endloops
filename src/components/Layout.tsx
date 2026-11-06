@@ -9,6 +9,14 @@ const links = [
   { to: "/about", label: "About" },
 ];
 
+const pageTitles: Record<string, string> = {
+  "/": "Endloops: automation for accounting, audit and property finance",
+  "/solutions": "End-to-end solutions | Endloops",
+  "/tools": "Standalone tools | Endloops",
+  "/about": "About | Endloops",
+  "/contact": "Talk to us | Endloops",
+};
+
 function Logo() {
   return (
     <Link to="/" className="block shrink-0">
@@ -28,7 +36,7 @@ function Header() {
         <Logo />
         <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
           {links.map((link) => (
-            <NavLink key={link.to} to={link.to} className="text-sm text-slate hover:text-navy">
+            <NavLink key={link.to} to={link.to} className="text-sm text-slate hover:text-navy aria-[current=page]:font-semibold aria-[current=page]:text-navy">
               {link.label}
             </NavLink>
           ))}
@@ -115,6 +123,7 @@ export default function Layout() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
+    document.title = pageTitles[pathname] ?? "Page not found | Endloops";
   }, [pathname]);
 
   return (
