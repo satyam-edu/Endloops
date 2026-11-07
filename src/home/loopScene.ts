@@ -279,7 +279,7 @@ export function createLoopScene(
 ): LoopScene {
   const mobile = window.innerWidth < 768;
   const sheetCount = mobile ? 60 : 400;
-  const heroCount = mobile ? 12 : 28;
+  const heroCount = mobile ? 10 : 22;
   const stacked = window.innerWidth < 1024; // matches the lg: breakpoint in Home.tsx
   const narrow = stacked ? 0.15 : 1; // narrow screens pull everything towards the centre
   const stackX = STACK_X * narrow;
@@ -352,7 +352,7 @@ export function createLoopScene(
   // Sheets on the track: one instanced mesh, so hundreds of sheets cost one draw call.
   const sheetTexture = buildSheetTexture(colours.line);
   const sheets = new InstancedMesh(
-    new BoxGeometry(1.3, 0.012, 1.8),
+    new BoxGeometry(1.15, 0.012, 1.5),
     new MeshLambertMaterial({ map: sheetTexture }),
     sheetCount,
   );
@@ -361,19 +361,25 @@ export function createLoopScene(
   scene.add(sheets);
 
   // The first sheets are always on show; the rest only appear at the "at volume" stage.
+  const crowdCount = sheetCount - heroCount;
+  // The hero sheets are evenly spaced with a gap between them. The crowd at the "at volume" stage
+  // runs in two neat lanes, each sheet resting a little above the one before it, like shingles.
+  const crowdIndex = (i: number) => i - heroCount;
   const sheetTurn = Array.from({ length: sheetCount }, (_, i) =>
-    i < heroCount ? i / heroCount : ((i * 2.399963) % (Math.PI * 2)) / (Math.PI * 2),
+    i < heroCount ? i / heroCount : (crowdIndex(i) >> 1) / (crowdCount / 2),
   );
-  // A steady scatter, so no two sheets lie exactly alike. Every sheet keeps its own turn and offset.
+  // A tiny, steady scatter, so no two sheets lie exactly alike without ever looking untidy.
   const scatter = (i: number, salt: number) => ((i * salt) % 1) - 0.5;
   const sheetSide = Array.from({ length: sheetCount }, (_, i) =>
-    i < heroCount ? scatter(i, 0.754877) * 0.2 : scatter(i, 0.618) * 1.2,
+    i < heroCount ? scatter(i, 0.754877) * 0.1 : (crowdIndex(i) & 1 ? 0.46 : -0.46) + scatter(i, 0.618) * 0.06,
   );
   const sheetTwist = Array.from({ length: sheetCount }, (_, i) =>
-    i < heroCount ? scatter(i, 0.569840) * 0.22 : scatter(i, 0.382) * 1.6,
+    i < heroCount ? scatter(i, 0.569840) * 0.08 : scatter(i, 0.382) * 0.12,
   );
-  // Sheets overlap like a shingled stream, each resting a little higher than the one beneath.
-  const sheetLayer = Array.from({ length: sheetCount }, (_, i) => 0.012 + (i % 5) * 0.0075 + (i >= heroCount ? (i % 7) * 0.004 : 0));
+  // Sheets rest just above the belt's surface, never inside it.
+  const sheetLayer = Array.from({ length: sheetCount }, (_, i) =>
+    i < heroCount ? 0.024 : 0.024 + ((crowdIndex(i) >> 1) % 8) * 0.005,
+  );
   const flagged = [3, Math.floor(heroCount * 0.6)];
   // The working paper rides in the slot of this sheet, so the two never overlap.
   const paperSlot = Math.floor(heroCount * 0.3);
@@ -538,7 +544,7 @@ export function createLoopScene(
     for (let k = 0; k < BELT_LINES; k++) {
       const u = arcAngle(k / BELT_LINES + travel);
       trackPoint(u, point);
-      dummy.position.set(point.x, point.y + BELT_TOP + 0.014, point.z);
+      dummy.position.set(point.x, point.y + BELT_TOP + 0.0125, point.z);
       dummy.rotation.set(0, trackYaw(u), 0);
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
@@ -596,9 +602,10 @@ export function createLoopScene(
       // Same pose as the sheets around it, lying on the belt, so it looks like one of them.
       const u = arcAngle(sheetTurn[paperSlot] + travel);
       trackPoint(u, point);
-      const yaw = trackYaw(u) + sheetTwist[paperSlot];
-      point.x += Math.cos(yaw) * sheetSide[paperSlot];
-      point.z -= Math.sin(yaw) * sheetSide[paperSlot];
+      const along = trackYaw(u);
+      const yaw = along + sheetTwist[paperSlot];
+      point.x += Math.cos(along) * sheetSide[paperSlot];
+      point.z -= Math.sin(along) * sheetSide[paperSlot];
       point.y += BELT_TOP + sheetLayer[paperSlot] + 0.008;
       flatOnTrack.setFromEuler(new Euler(-Math.PI / 2, yaw, 0, "YXZ"));
       paper.position.lerpVectors(point, to.fromArray(b.paper), blend);
