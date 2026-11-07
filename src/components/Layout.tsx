@@ -20,7 +20,7 @@ const pageTitles: Record<string, string> = {
 function Logo() {
   return (
     <Link to="/" className="block shrink-0">
-      <img src={logo} alt="Endloops" width={558} height={162} className="h-14 w-auto" />
+      <img src={logo} alt="Endloops" width={1121} height={285} className="h-14 w-auto" />
     </Link>
   );
 }
