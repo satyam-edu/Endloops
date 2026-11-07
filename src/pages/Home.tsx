@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import Tick from "../components/Tick";
 import HomeSections from "../home/HomeSections";
 import type { LoopScene } from "../home/loopScene";
@@ -44,10 +43,31 @@ const blockClass = "relative h-[170svh] motion-reduce:h-auto";
 // The text always sits above the canvas (z-20 over z-10), so the scene can never cover it.
 const copyClass = `sticky top-(--nav) z-20 ${viewport} motion-reduce:static motion-reduce:h-auto`;
 const innerClass = "page pt-[4svh] motion-reduce:py-16";
-const wordClass = "heading text-[min(19vw,12svh)] lg:text-[min(12vw,22svh)]";
+const wordClass = "heading text-[min(15vw,11svh)] lg:text-[min(8vw,16svh)]";
 // Capped so the text can't reach the paper on the right, on any screen size.
 const textWidth = "max-w-[30rem] lg:max-w-[min(30rem,40vw)]";
-const titleClass = `accent mt-2 text-3xl leading-tight lg:text-[2.25rem] ${textWidth}`;
+const subtitleClass = `mt-3 text-2xl font-medium leading-snug tracking-tight lg:text-[1.75rem] ${textWidth}`;
+
+// The five steps are a real sequence, so a progress bar says where you are in it.
+function Progress({ step, dark = true }: { step: number; dark?: boolean }) {
+  return (
+    <div className="flex items-center gap-4">
+      <ol aria-hidden="true" className="flex gap-1.5">
+        {stages.map((stage, index) => (
+          <li
+            key={stage.ref}
+            className={`h-1 w-8 rounded-full ${
+              index < step ? (dark ? "bg-green-bright" : "bg-green") : dark ? "bg-white/25" : "bg-navy/15"
+            }`}
+          />
+        ))}
+      </ol>
+      <p className={`font-mono text-sm ${dark ? "text-green-bright" : "text-green"}`}>
+        {step <= stages.length ? `Step ${step} of ${stages.length}` : "Sign-off"}
+      </p>
+    </div>
+  );
+}
 
 const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 
@@ -64,6 +84,8 @@ export default function Home() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<LoopScene | null>(null);
   const signOffStatus = useRef<HTMLDivElement>(null);
+  const heroCopy = useRef<HTMLDivElement>(null);
+  const heroEnd = useRef<HTMLAnchorElement>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [signed, setSigned] = useState(false);
 
@@ -103,7 +125,9 @@ export default function Home() {
     let cancelled = false;
     import("../home/loopScene").then(({ createLoopScene }) => {
       if (cancelled) return;
-      scene.current = createLoopScene(canvas.current!, getStage);
+      const heroInset = () =>
+        heroEnd.current!.getBoundingClientRect().bottom - heroCopy.current!.getBoundingClientRect().top;
+      scene.current = createLoopScene(canvas.current!, getStage, heroInset);
       setSceneReady(true);
     });
 
@@ -135,32 +159,38 @@ export default function Home() {
         </div>
 
         <div className={`on-navy text-white ${blockClass}`}>
-          <div data-copy className={copyClass}>
+          <div data-copy ref={heroCopy} className={copyClass}>
             <div className={innerClass}>
-              <p className="inline-flex items-center gap-3 font-mono text-sm text-green-bright">
-                <span aria-hidden="true" className="h-px w-8 bg-green-bright" />
+              <p className="flex items-center gap-3 font-mono text-sm text-green-bright">
+                <span aria-hidden="true" className="h-px w-10 bg-green-bright" />
                 Automation for accounting, audit and property finance
               </p>
-              <h1 className="mt-4 text-[min(12vw,7.5svh)] lg:text-[min(5vw,9.5svh)]">
-                <span className="heading block">The work gets prepared.</span>
-                <span className="accent block leading-[1.05] text-green-bright">The decision stays yours.</span>
+              <h1 className="heading mt-6 text-[min(13vw,8svh)] lg:text-[min(7.4vw,14.5svh)]">
+                <span className="block">The work gets prepared.</span>
+                <span className="block text-green-bright">The decision stays yours.</span>
               </h1>
-              <p className="mt-5 max-w-[38rem] text-white/85">
-                Endloops reads the documents, matches the ledgers, flags the exceptions and drafts the
-                working papers. Your team reviews, decides and signs off.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4">
-                <div className="flex flex-wrap gap-3">
-                  <Link to="/contact" className="btn btn-primary">
-                    Talk to us
-                  </Link>
-                  <a href="#read" className="btn btn-outline-light">
+              {/* A hairline, then two quiet columns: what it does on the left, who it is for on the right. */}
+              <div className="mt-6 grid gap-5 border-t border-white/20 pt-5 lg:grid-cols-[minmax(0,36rem)_1fr] lg:gap-16">
+                <p className="text-white/80 lg:text-lg">
+                  Endloops reads the documents, matches the ledgers, flags the exceptions and drafts the
+                  working papers. Your team reviews, decides and signs off.
+                </p>
+                <div className="flex flex-col gap-3 lg:items-end lg:text-right">
+                  <p className="max-w-xs text-sm text-white/70">
+                    For accountants, auditors, finance teams and property management companies.
+                  </p>
+                  {/* A quiet cue, not a button: the contact button already lives in the nav. */}
+                  <a
+                    ref={heroEnd}
+                    href="#read"
+                    className="group inline-flex min-h-11 items-center gap-2 font-semibold text-white hover:text-green-bright"
+                  >
                     See how it works
+                    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5 transition-transform duration-300 group-hover:translate-y-1 motion-reduce:transition-none" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 4v12M5 11l5 5 5-5" />
+                    </svg>
                   </a>
                 </div>
-                <p className="max-w-xs border-l-2 border-green-bright pl-4 text-sm text-white/85">
-                  For accountants, auditors, finance teams and property management companies.
-                </p>
               </div>
             </div>
           </div>
@@ -170,12 +200,12 @@ export default function Home() {
           <article key={stage.ref} id={index === 0 ? "read" : undefined} className={`on-navy text-white ${blockClass}`}>
             <div data-copy className={copyClass}>
               <div className={innerClass}>
-                <p className="font-mono text-sm text-green-bright">{stage.ref}</p>
-                <h2>
+                <Progress step={index + 1} />
+                <h2 className="mt-6">
                   <span className={`block ${wordClass}`}>{stage.word}</span>
-                  <span className={`block text-green-bright ${titleClass}`}>{stage.rest}</span>
+                  <span className={`block text-green-bright ${subtitleClass}`}>{stage.rest}</span>
                 </h2>
-                <p className={`mt-3 text-white/85 ${textWidth}`}>{stage.body}</p>
+                <p className={`mt-4 text-white/80 lg:text-lg ${textWidth}`}>{stage.body}</p>
               </div>
             </div>
           </article>
@@ -185,12 +215,14 @@ export default function Home() {
         <article className={`text-navy motion-reduce:bg-white ${sceneReady ? "" : "bg-white"} ${blockClass}`}>
           <div data-copy className={copyClass}>
             <div className={innerClass}>
-              <p className="font-mono text-sm text-green">A7</p>
-              <h2>
-                <span className="heading block text-[min(13vw,10svh)] lg:text-[min(7vw,15svh)] lg:max-w-[52vw]">
+              <Progress step={stages.length + 1} dark={false} />
+              <h2 className="mt-6">
+                <span className="heading block text-[min(13vw,10svh)] lg:text-[min(5.6vw,11svh)]">
                   Then it stops,
                 </span>
-                <span className={`block text-green ${titleClass}`}>and waits for you.</span>
+                <span className="heading block text-[min(13vw,10svh)] text-green lg:text-[min(5.6vw,11svh)]">
+                  and waits for you.
+                </span>
               </h2>
               <p className={`mt-3 text-slate ${textWidth}`}>The final sign-off always stays with people.</p>
               <div ref={signOffStatus} tabIndex={-1} className={`mt-5 min-h-12 ${textWidth}`} role="status">

@@ -60,10 +60,10 @@ export default function HomeSections() {
         <SectionRef>B1</SectionRef>
         <h2 id="problem-title" className="mt-4 text-(length:--text-display)">
           <span className="heading block max-w-5xl">Skilled people shouldn't spend the day</span>
-          <span className="accent block leading-[1.1] text-green">retyping invoices.</span>
+          <span className="heading block text-green">retyping invoices.</span>
         </h2>
         {/* The same words again and again, because that is the problem. */}
-        <p aria-hidden="true" className="accent text-(length:--text-display) leading-[1.1] text-green">
+        <p aria-hidden="true" className="heading text-(length:--text-display) text-green">
           <span className="block opacity-30">retyping invoices.</span>
           <span className="block opacity-10">retyping invoices.</span>
         </p>
@@ -77,7 +77,7 @@ export default function HomeSections() {
         <div className="page pb-12">
           <SectionRef>B2</SectionRef>
           <h2 id="two-ways-title" className={sectionTitle}>
-            Run a whole process, <span className="accent">or fix one step.</span>
+            Run a whole process, <span className="text-blue">or fix one step.</span>
           </h2>
         </div>
 
@@ -112,7 +112,7 @@ export default function HomeSections() {
         <div className="page section">
           <SectionRef>C1</SectionRef>
           <h2 id="demo-title" className={sectionTitle}>
-            Try the part <span className="accent">that matters.</span>
+            Try the part <span className="text-green">that matters.</span>
           </h2>
           <p className="mb-10 mt-6 max-w-2xl text-slate">
             A small reconciliation with one difference from a typical demo: it won't finish without you.
@@ -133,7 +133,7 @@ export default function HomeSections() {
         <div className="page section">
           <SectionRef className="text-white">D1</SectionRef>
           <h2 id="trust-title" className={`${sectionTitle} max-w-4xl`}>
-            Made by people who know <span className="accent">what a review is for.</span>
+            Made by people who know <span className="text-green-bright">what a review is for.</span>
           </h2>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {trustReasons.map((reason) => (
@@ -150,7 +150,7 @@ export default function HomeSections() {
         <div className="page section grid items-center gap-16 lg:grid-cols-[1fr_auto]">
           <div>
             <h2 id="closing-title" className="heading text-(length:--text-display)">
-              What does your team <span className="accent text-green-bright">dread doing</span> every month?
+              What does your team <span className="text-green-bright">dread doing</span> every month?
             </h2>
             <p className="mt-6 max-w-xl">Tell us about it. We'll show you how much of it software can prepare.</p>
             <Link to="/contact" className="btn btn-light mt-8">

@@ -174,7 +174,7 @@ export default function ReconciliationDemo() {
         {/* Announced to screen readers as the demo moves on. */}
         <div ref={statusRegion} tabIndex={-1} role="status" className="font-medium">
           {status === "signed" ? (
-            <p className="flex items-center gap-3 font-display text-3xl">
+            <p className="flex items-center gap-3 heading text-3xl">
               <Tick draw className="h-9 w-11 shrink-0 text-green" />
               {statusText}
             </p>

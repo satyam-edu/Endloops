@@ -1,7 +1,6 @@
 @import "tailwindcss";
-@import "@fontsource-variable/newsreader";
-@import "@fontsource-variable/newsreader/wght-italic.css";
 @import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/bricolage-grotesque";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 
@@ -23,8 +22,8 @@
   --color-purple: #6b43d9; /* standalone tools only */
   --color-amber: #a9560a; /* exceptions only */
 
-  --font-display: "Newsreader Variable", Georgia, serif;
   --font-body: "Hanken Grotesk Variable", system-ui, sans-serif;
+  --font-heading: "Bricolage Grotesque Variable", "Hanken Grotesk Variable", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --text-display: clamp(2.75rem, 6vw, 5.5rem);
@@ -142,19 +141,12 @@ html {
     color: var(--color-navy);
   }
 
-  /* Two voices. Heavy sans is the software doing the work; italic serif is the human part. */
+  /* One display font for every heading. */
   .heading {
-    font-family: var(--font-body);
-    font-weight: 800;
+    font-family: var(--font-heading);
+    font-weight: 700;
     letter-spacing: -0.035em;
-    line-height: 1.02;
-  }
-
-  .accent {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: -0.02em;
+    line-height: 1;
   }
 
   .paper-shadow {

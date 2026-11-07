@@ -52,6 +52,33 @@ function trackYaw(u: number) {
   return Math.atan2(-TRACK_X * Math.sin(u), TRACK_Z * Math.cos(u));
 }
 
+// Walking the oval by angle bunches things up at the two ends, where it curves. This table turns
+// "how far round, from 0 to 1" into the angle that is that far along, so spacing is always even.
+const ARC_STEPS = 720;
+const arcTable = (() => {
+  const lengths = [0];
+  const a = new Vector3();
+  const b = new Vector3();
+  for (let i = 1; i <= ARC_STEPS; i++) {
+    trackPoint(((i - 1) / ARC_STEPS) * Math.PI * 2, a);
+    trackPoint((i / ARC_STEPS) * Math.PI * 2, b);
+    lengths.push(lengths[i - 1] + a.distanceTo(b));
+  }
+  return lengths;
+})();
+function arcAngle(turns: number) {
+  const target = (turns - Math.floor(turns)) * arcTable[ARC_STEPS];
+  let low = 0;
+  let high = ARC_STEPS;
+  while (high - low > 1) {
+    const mid = (low + high) >> 1;
+    if (arcTable[mid] <= target) low = mid;
+    else high = mid;
+  }
+  const fraction = (target - arcTable[low]) / (arcTable[high] - arcTable[low] || 1);
+  return ((low + fraction) / ARC_STEPS) * Math.PI * 2;
+}
+
 function buildTrack(color: string) {
   const positions: number[] = [];
   const indices: number[] = [];
@@ -99,7 +126,7 @@ function buildRulerMarks(color: string) {
   const dummy = new Object3D();
   const point = new Vector3();
   for (let i = 0; i < count; i++) {
-    const u = (i / count) * Math.PI * 2;
+    const u = arcAngle(i / count);
     trackPoint(u, point);
     const yaw = trackYaw(u);
     dummy.position.set(point.x + Math.cos(yaw) * 0.84, point.y - 0.02, point.z - Math.sin(yaw) * 0.84);
@@ -232,7 +259,7 @@ const FLAT = new Quaternion().setFromEuler(new Euler(-Math.PI / 2, 0, 0));
 const STACK_X = 1.9; // where the sheets pile up at the draft stage
 // Text sits at the top of the screen, so every pose keeps the track in the lower part of the frame.
 const poses = [
-  { camera: [0, 5.5, 15], look: [0, 2.6, 0], paper: [0, 0, 0], turn: FLAT, size: 1 },
+  { camera: [0, 5.5, 15], look: [0, 3.2, 0], paper: [0, 0, 0], turn: FLAT, size: 1 },
   { camera: [0, 3.2, 11], look: [0, 2.6, 0], paper: [1.93, 2.3, 3], turn: FACING, size: 1 },
   { camera: [0, 3.2, 12], look: [0, 2.6, 0], paper: [1.05, 2.15, 3], turn: FACING, size: 1 },
   { camera: [0, 5.5, 13], look: [0, 3, 0], paper: [2.4, 2, 1], turn: FACING, size: 1 },
@@ -241,10 +268,15 @@ const poses = [
   { camera: [0, 2.8, 10.5], look: [0, 2.6, 3], paper: [1.6, 2.35, 3], turn: FACING, size: 1 },
 ];
 
-export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => number): LoopScene {
+export function createLoopScene(
+  canvas: HTMLCanvasElement,
+  getStage: () => number,
+  // Pixels of the screen's top taken by the hero text, so the ring can always start just below it.
+  getHeroInset: () => number = () => 0,
+): LoopScene {
   const mobile = window.innerWidth < 768;
   const sheetCount = mobile ? 60 : 400;
-  const heroCount = mobile ? 14 : 30;
+  const heroCount = mobile ? 12 : 24;
   const stacked = window.innerWidth < 1024; // matches the lg: breakpoint in Home.tsx
   const narrow = stacked ? 0.15 : 1; // narrow screens pull everything towards the centre
   const stackX = STACK_X * narrow;
@@ -308,13 +340,15 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   scene.add(sheets);
 
   // The first sheets are always on show; the rest only appear at the "at volume" stage.
-  const sheetU = Array.from({ length: sheetCount }, (_, i) =>
-    i < heroCount ? (i / heroCount) * Math.PI * 2 : (i * 2.399963) % (Math.PI * 2),
+  const sheetTurn = Array.from({ length: sheetCount }, (_, i) =>
+    i < heroCount ? i / heroCount : ((i * 2.399963) % (Math.PI * 2)) / (Math.PI * 2),
   );
   const sheetSide = Array.from({ length: sheetCount }, (_, i) =>
     i < heroCount ? 0 : ((i * 0.618) % 1) * 1.1 - 0.55,
   );
   const flagged = [3, Math.floor(heroCount * 0.6)];
+  // The working paper rides in the slot of this sheet, so the two never overlap.
+  const paperSlot = Math.floor(heroCount * 0.3);
 
   // The working paper: the one sheet the whole story follows.
   const paperCanvas = document.createElement("canvas");
@@ -369,16 +403,24 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   document.fonts.load('500 38px "IBM Plex Mono"').then(() => paperStage >= 0 && redrawPaper());
 
   // Sizing. The scene fills the screen, and on narrow screens shifts down to sit under the text.
+  let viewWidth = 1;
+  let viewHeight = 1;
+  let viewShift = 0; // how far the whole scene is pushed down, in pixels
+  const applyShift = (shift: number) => {
+    viewShift = shift;
+    camera.setViewOffset(viewWidth, viewHeight, 0, -shift, viewWidth, viewHeight);
+    camera.updateProjectionMatrix();
+  };
   const resize = () => {
     const parent = canvas.parentElement!;
     const width = parent.clientWidth;
     const height = parent.clientHeight;
+    viewWidth = width;
+    viewHeight = height;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.fov = stacked ? 46 : 32;
-    if (stacked) camera.setViewOffset(width, height, 0, -height * 0.22, width, height);
-    else camera.clearViewOffset();
-    camera.updateProjectionMatrix();
+    applyShift(viewShift);
   };
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(canvas.parentElement!);
@@ -426,7 +468,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     if (signed) resume = Math.min(resume + dt * 0.6, 1);
     const stopped = ramp(5.1, 5.85, stage) * (1 - resume);
     const speed = (0.1 + 0.14 * ramp(4.2, 5, stage)) * (1 - stopped);
-    travel += dt * speed;
+    travel += (dt * speed) / (Math.PI * 2);
 
     const gather = ramp(3.3, 3.95, stage) * (1 - ramp(4.1, 4.8, stage));
     const crowd = ramp(4.2, 5, stage) * (1 - ramp(5.2, 5.8, stage) * (1 - resume));
@@ -438,10 +480,10 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     for (let i = 0; i < sheetCount; i++) {
       const hero = i < heroCount;
       const isFlagged = flagged.includes(i);
-      const u = sheetU[i] + travel;
+      const u = arcAngle(sheetTurn[i] + travel);
       trackPoint(u, point);
       const yaw = trackYaw(u);
-      const side = sheetSide[i] + (isFlagged ? tip * 1.15 : 0);
+      const side = sheetSide[i];
       const x = point.x + Math.cos(yaw) * side;
       const z = point.z - Math.sin(yaw) * side;
 
@@ -449,13 +491,15 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
       const g = hero ? gather : 0;
       dummy.position.set(
         x * (1 - g) + stackX * g,
-        (point.y + 0.3 * (1 - closeUp) + (isFlagged ? tip * 0.35 : 0)) * (1 - g) + g * (0.06 + i * 0.012),
+        (point.y + 0.3 * (1 - closeUp) + (isFlagged ? tip * 0.4 : 0)) * (1 - g) + g * (0.06 + i * 0.012),
         z * (1 - g),
       );
       // Sheets ride tilted, like files on a conveyor, and lie flat once stacked.
       const tilt = -0.32 * (1 - g) * (1 - closeUp);
-      dummy.rotation.set(tilt + (isFlagged ? tip * 0.3 : 0), yaw * (1 - g), isFlagged ? tip * 0.45 : 0);
-      const size = (hero ? 1 : crowd * 0.55) * (1 + g * 1.24);
+      dummy.rotation.set(tilt, yaw * (1 - g), 0);
+      // The sheet whose slot the working paper rides in stays out of the way until the paper lifts off.
+      const slot = i === paperSlot ? ramp(0.1, 0.9, stage) : 1;
+      const size = (hero ? slot : crowd * 0.55) * (1 + g * 1.24);
       dummy.scale.setScalar(Math.max(size, 0.0001));
       dummy.updateMatrix();
       sheets.setMatrixAt(i, dummy.matrix);
@@ -485,6 +529,13 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     (ground.material as ShadowMaterial).opacity = 0.3 * (1 - whiteOut * (1 - resume * 0.5));
 
     // Blend between the two nearest poses.
+    // On the hero the ring is pushed down until it clears the text, then eases back as the story starts.
+    // Phones always sit a little lower, to leave room for the text above the scene.
+    const base = stacked ? viewHeight * 0.22 : 0;
+    const ringTop = viewHeight * (stacked ? 0.8 : 0.64);
+    const wanted = base + Math.max(0, getHeroInset() + 16 - ringTop) * (1 - ramp(0, 0.7, stage));
+    if (Math.abs(wanted - viewShift) > 0.5) applyShift(wanted);
+
     const index = Math.min(Math.floor(stage), poses.length - 2);
     const blend = ramp(0, 1, stage - index);
     const a = poses[index];
@@ -507,10 +558,11 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
 
     // At stage 0 the paper rides the track like any other sheet, then lifts off.
     if (index === 0) {
-      const u = 1.25 + travel;
+      // Same pose as the sheets around it (height, lean and size), so it looks like one of them.
+      const u = arcAngle(sheetTurn[paperSlot] + travel);
       trackPoint(u, point);
-      point.y += 0.02;
-      flatOnTrack.setFromEuler(new Euler(-Math.PI / 2, trackYaw(u), 0, "YXZ"));
+      point.y += 0.3 * (1 - closeUp);
+      flatOnTrack.setFromEuler(new Euler(-Math.PI / 2 - 0.32 * (1 - closeUp), trackYaw(u), 0, "YXZ"));
       paper.position.lerpVectors(point, to.fromArray(b.paper), blend);
       turn.copy(flatOnTrack).slerp(b.turn, blend);
       paper.scale.setScalar(0.45 + (b.size - 0.45) * blend);

@@ -24,7 +24,7 @@ export default function About() {
         sheets={4}
         title={
           <>
-            Started inside an audit firm. <span className="accent">Still thinks like one.</span>
+            Started inside an audit firm. <span className="opacity-70">Still thinks like one.</span>
           </>
         }
       />
@@ -39,7 +39,7 @@ export default function About() {
               className="paper-shadow mb-[30svh] grid items-start gap-4 rounded-md bg-white p-6 last:mb-0 md:sticky md:grid-cols-[6rem_1fr] md:p-10 motion-reduce:static motion-reduce:mb-4"
             >
               <SectionRef>{note.ref}</SectionRef>
-              <p className="max-w-3xl font-display text-[1.75rem] leading-snug">{note.text}</p>
+              <p className="max-w-3xl text-2xl font-medium leading-snug tracking-tight">{note.text}</p>
             </li>
           ))}
         </ol>

@@ -83,7 +83,7 @@ function Header() {
               key={link.to}
               to={link.to}
               onClick={closeMenu}
-              className="border-b border-line py-4 font-display text-[2.5rem] leading-tight"
+              className="border-b border-line py-4 text-[2rem] font-semibold leading-tight tracking-tight"
             >
               {link.label}
             </Link>

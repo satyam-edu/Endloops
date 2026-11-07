@@ -14,7 +14,7 @@ export default function Tools() {
         sheets={1}
         title={
           <>
-            One job, done well, <span className="accent">on its own.</span>
+            One job, done well, <span className="opacity-70">on its own.</span>
           </>
         }
       >

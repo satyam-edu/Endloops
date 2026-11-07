@@ -11,7 +11,7 @@ export default function Solutions() {
         sheets={8}
         title={
           <>
-            Whole processes, <span className="accent">prepared from start to finish.</span>
+            Whole processes, <span className="opacity-70">prepared from start to finish.</span>
           </>
         }
       >
