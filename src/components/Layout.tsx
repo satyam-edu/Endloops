@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import logo from "../assets/endloops-logo.png";
 import Tick from "./Tick";
@@ -29,14 +29,27 @@ function Header() {
   // A native <dialog> traps focus and closes on Esc without any extra code.
   const menu = useRef<HTMLDialogElement>(null);
   const closeMenu = () => menu.current?.close();
+  const [scrolled, setScrolled] = useState(false);
+
+  // The bar gains a soft shadow once the page moves, so it reads as sitting above the content.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-20 h-(--nav) border-b border-line bg-white">
+    <header
+      className={`sticky top-0 z-50 h-(--nav) border-b bg-white transition-shadow duration-300 ${
+        scrolled ? "border-transparent shadow-[0_8px_24px_-12px_rgba(15,27,61,0.35)]" : "border-line"
+      }`}
+    >
       <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between px-6">
         <Logo />
         <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
           {links.map((link) => (
-            <NavLink key={link.to} to={link.to} className="text-sm text-slate hover:text-navy aria-[current=page]:font-semibold aria-[current=page]:text-navy">
+            <NavLink key={link.to} to={link.to} className="border-b-2 border-transparent py-1 text-base text-slate transition-colors hover:text-navy aria-[current=page]:border-green aria-[current=page]:font-semibold aria-[current=page]:text-navy">
               {link.label}
             </NavLink>
           ))}

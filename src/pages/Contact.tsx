@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import PageHero from "../components/PageHero";
 
 type Errors = { name?: string; email?: string; message?: string };
 
@@ -42,13 +43,15 @@ export default function Contact() {
   };
 
   return (
-    <section className="page section">
-      <h1 className="font-display text-(length:--text-display) leading-[1.02] tracking-tight">Talk to us.</h1>
-      <p className="mt-6 max-w-2xl text-slate">
+    <>
+      <PageHero background="bg-navy" sheets={5} title="Talk to us.">
         Tell us what's taking your team's time. A short description is plenty.
-      </p>
+      </PageHero>
 
-      <form noValidate onSubmit={onSubmit} onChange={() => setPassed(false)} className="mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
+      <section className="bg-mist pb-24">
+      {/* The form is a sheet of paper resting over the edge of the header. */}
+      <div className="page">
+      <form noValidate onSubmit={onSubmit} onChange={() => setPassed(false)} className="paper-shadow relative -mt-8 grid max-w-4xl gap-6 rounded-md bg-white p-6 md:grid-cols-2 md:p-10 lg:-mt-16">
         <div>
           <label htmlFor="name" className={labelClass}>Name</label>
           <input
@@ -129,6 +132,8 @@ export default function Contact() {
           </div>
         </div>
       </form>
-    </section>
+      </div>
+      </section>
+    </>
   );
 }

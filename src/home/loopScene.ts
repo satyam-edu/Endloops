@@ -10,10 +10,13 @@ import {
   DirectionalLight,
   Euler,
   Float32BufferAttribute,
+  Fog,
+  GridHelper,
   Group,
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
+  type Material,
   MeshLambertMaterial,
   Object3D,
   PCFShadowMap,
@@ -140,6 +143,9 @@ type Colours = Record<"navy" | "slate" | "line" | "green" | "bright" | "amber", 
 function drawPaper(c: CanvasRenderingContext2D, stage: number, tick: number, colours: Colours) {
   c.fillStyle = "white";
   c.fillRect(0, 0, PAPER_W, PAPER_H);
+  c.strokeStyle = colours.line; // an edge, so the paper still reads on the white sign-off screen
+  c.lineWidth = 10;
+  c.strokeRect(0, 0, PAPER_W, PAPER_H);
   c.fillStyle = colours.navy;
   c.font = '500 38px "IBM Plex Mono"';
   c.fillText("Working paper", 90, 130);
@@ -223,22 +229,24 @@ function buildLedgerTexture(colours: Colours) {
 // Where the camera and the working paper sit at each stage.
 const FACING = new Quaternion().setFromEuler(new Euler(-0.04, -0.08, 0.015));
 const FLAT = new Quaternion().setFromEuler(new Euler(-Math.PI / 2, 0, 0));
-const STACK_X = 1.4; // where the sheets pile up at the draft stage
+const STACK_X = 1.9; // where the sheets pile up at the draft stage
+// Text sits at the top of the screen, so every pose keeps the track in the lower part of the frame.
 const poses = [
-  { camera: [0, 15, 5.5], look: [0, 0, 0.2], paper: [0, 0, 0], turn: FLAT, size: 1 },
-  { camera: [0.6, 3, 10], look: [0.6, 2.2, 3], paper: [0.9, 1.7, 3], turn: FACING, size: 1 },
-  { camera: [-0.3, 2.8, 11], look: [-0.3, 2.2, 3], paper: [-1, 1.6, 3], turn: FACING, size: 1 },
-  { camera: [0, 7, 12.5], look: [0, 1.5, 0], paper: [-2.6, 2.1, 0.6], turn: FACING, size: 1 },
-  { camera: [-0.6, 6.2, 4.4], look: [-0.6, 0.3, 0.1], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 1 },
-  { camera: [0, 15, 5.5], look: [0, 0, 0.2], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 0.001 },
-  { camera: [-1, 3, 10.5], look: [0, 2.45, 3], paper: [0, 2.2, 3], turn: FACING, size: 1 },
+  { camera: [0, 5.5, 15], look: [0, 2.6, 0], paper: [0, 0, 0], turn: FLAT, size: 1 },
+  { camera: [0, 3.2, 11], look: [0, 2.6, 0], paper: [1.93, 2.3, 3], turn: FACING, size: 1 },
+  { camera: [0, 3.2, 12], look: [0, 2.6, 0], paper: [1.05, 2.15, 3], turn: FACING, size: 1 },
+  { camera: [0, 5.5, 13], look: [0, 3, 0], paper: [2.4, 2, 1], turn: FACING, size: 1 },
+  { camera: [0, 6.2, 6.8], look: [0, 0.2, 1.3], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 1 },
+  { camera: [0, 7, 14], look: [0, 3.4, 0], paper: [STACK_X, 0.62, 0], turn: FLAT, size: 0.001 },
+  { camera: [0, 2.8, 10.5], look: [0, 2.6, 3], paper: [1.6, 2.35, 3], turn: FACING, size: 1 },
 ];
 
 export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => number): LoopScene {
   const mobile = window.innerWidth < 768;
   const sheetCount = mobile ? 60 : 400;
   const heroCount = mobile ? 14 : 30;
-  const narrow = mobile ? 0.3 : 1; // phones pull everything towards the centre of the frame
+  const stacked = window.innerWidth < 1024; // matches the lg: breakpoint in Home.tsx
+  const narrow = stacked ? 0.15 : 1; // narrow screens pull everything towards the centre
   const stackX = STACK_X * narrow;
   const colours: Colours = {
     navy: token("navy"),
@@ -249,12 +257,15 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     amber: token("amber"),
   };
 
-  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const renderer = new WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = PCFShadowMap;
 
+  const navy = new Color(colours.navy);
+  const fog = new Fog(navy.clone(), 14, 30);
   const scene = new Scene();
+  scene.fog = fog; // distant things fade into the background, which adds a lot of depth
   const camera = new PerspectiveCamera(32, 1, 0.1, 100);
 
   scene.add(new AmbientLight(0xffffff, 2.3));
@@ -269,14 +280,21 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   sun.shadow.radius = 5;
   scene.add(sun);
 
-  const ground = new Mesh(new PlaneGeometry(60, 60), new ShadowMaterial({ opacity: 0.14 }));
+  const ground = new Mesh(new PlaneGeometry(60, 60), new ShadowMaterial({ opacity: 0.3 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.4;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  scene.add(buildTrack(colours.navy));
-  scene.add(buildRulerMarks(colours.slate));
+  // A ledger-paper grid for a floor, so the scene has a real space to sit in.
+  const floor = new GridHelper(80, 80, 0xffffff, 0xffffff);
+  floor.position.y = -0.38; // just above the shadow plane, which would otherwise hide parts of it
+  const floorMaterial = floor.material as Material;
+  floorMaterial.transparent = true;
+  scene.add(floor);
+
+  scene.add(buildTrack(token("navy-soft")));
+  scene.add(buildRulerMarks(colours.bright));
 
   // Sheets on the track: one instanced mesh, so hundreds of sheets cost one draw call.
   const sheetTexture = buildSheetTexture(colours.line);
@@ -312,19 +330,19 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   const paper = new Group();
   const page = new Mesh(
     new BoxGeometry(PAPER_WIDTH, PAPER_HEIGHT, 0.012),
-    new MeshBasicMaterial({ map: paperTexture }), // unlit, so it stays true white at any angle
+    new MeshBasicMaterial({ map: paperTexture, fog: false }), // unlit, so it stays true white at any angle
   );
   page.castShadow = true;
   paper.add(page);
 
-  const binder = new Mesh(new BoxGeometry(0.8, 0.045, 0.04), new MeshBasicMaterial({ color: colours.navy }));
+  const binder = new Mesh(new BoxGeometry(0.8, 0.045, 0.04), new MeshBasicMaterial({ color: colours.navy, fog: false }));
   binder.position.set(0, PAPER_HEIGHT / 2 - 0.06, 0.02);
   paper.add(binder);
 
   // The ledger that appears beside the paper at the compare stage, and the lines between them.
   const ledger = new Mesh(
     new BoxGeometry(PAPER_WIDTH, PAPER_HEIGHT, 0.012),
-    new MeshBasicMaterial({ map: buildLedgerTexture(colours) }),
+    new MeshBasicMaterial({ map: buildLedgerTexture(colours), fog: false }),
   );
   ledger.position.x = 2.6;
   ledger.castShadow = true;
@@ -334,7 +352,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   const linkStart = 0.8;
   const linkEnd = 2.6 - PAPER_WIDTH / 2 + 0.15;
   const links = MATCHED_ROWS.map((row) => {
-    const link = new Mesh(new BoxGeometry(1, 0.016, 0.004), new MeshBasicMaterial({ color: colours.bright }));
+    const link = new Mesh(new BoxGeometry(1, 0.016, 0.004), new MeshBasicMaterial({ color: colours.bright, fog: false }));
     link.position.set(0, rowHeight(ROW_YS[row] + 7), 0.02);
     paper.add(link);
     return link;
@@ -350,16 +368,15 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   };
   document.fonts.load('500 38px "IBM Plex Mono"').then(() => paperStage >= 0 && redrawPaper());
 
-  // Sizing. The scene fills the screen on desktop, and shifts up on phones to sit above the text.
+  // Sizing. The scene fills the screen, and on narrow screens shifts down to sit under the text.
   const resize = () => {
     const parent = canvas.parentElement!;
     const width = parent.clientWidth;
     const height = parent.clientHeight;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    const stacked = width < 1024; // matches the lg: breakpoint in Home.tsx
     camera.fov = stacked ? 46 : 32;
-    if (stacked) camera.setViewOffset(width, height, 0, height * 0.07, width, height);
+    if (stacked) camera.setViewOffset(width, height, 0, -height * 0.22, width, height);
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   };
@@ -386,8 +403,9 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
   const flatOnTrack = new Quaternion();
   const white = new Color(0xffffff);
   const paleGreen = new Color(colours.bright).lerp(white, 0.68);
-  const paleAmber = new Color(colours.amber).lerp(white, 0.5);
+  const paleAmber = new Color(colours.amber).lerp(white, 0.35);
   const tint = new Color();
+  const background = new Color();
 
   let stage = getStage();
   let travel = 0;
@@ -435,7 +453,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
         z * (1 - g),
       );
       // Sheets ride tilted, like files on a conveyor, and lie flat once stacked.
-      const tilt = -0.6 * (1 - g) * (1 - closeUp);
+      const tilt = -0.32 * (1 - g) * (1 - closeUp);
       dummy.rotation.set(tilt + (isFlagged ? tip * 0.3 : 0), yaw * (1 - g), isFlagged ? tip * 0.45 : 0);
       const size = (hero ? 1 : crowd * 0.55) * (1 + g * 1.24);
       dummy.scale.setScalar(Math.max(size, 0.0001));
@@ -451,6 +469,21 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
 
     const compare = ramp(1.35, 1.9, stage) * (1 - ramp(2.2, 2.7, stage));
 
+    // When the machine stops, the whole screen turns to white paper and the track fades away.
+    // Signing off lets it come quietly back.
+    const whiteOut = ramp(5, 5.7, stage);
+    background.copy(navy).lerp(white, whiteOut);
+    renderer.setClearColor(background, 1);
+    fog.color.copy(background);
+    fog.near = 14 + (6 + resume * 4 - 14) * whiteOut;
+    fog.far = 30 + (9.5 + resume * 12.5 - 30) * whiteOut;
+    // At the draft stage the far track fades out, so the stack has the stage to itself.
+    const draftFocus = ramp(3.3, 3.9, stage) * (1 - ramp(4.1, 4.7, stage));
+    fog.near += (10 - fog.near) * draftFocus;
+    fog.far += (13 - fog.far) * draftFocus;
+    floorMaterial.opacity = 0.14 * (1 - whiteOut);
+    (ground.material as ShadowMaterial).opacity = 0.3 * (1 - whiteOut * (1 - resume * 0.5));
+
     // Blend between the two nearest poses.
     const index = Math.min(Math.floor(stage), poses.length - 2);
     const blend = ramp(0, 1, stage - index);
@@ -459,19 +492,15 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
     cameraPosition.lerpVectors(from.fromArray(a.camera), to.fromArray(b.camera), blend);
     cameraLook.lerpVectors(from.fromArray(a.look), to.fromArray(b.look), blend);
 
-    if (mobile) {
-      // Slide the view towards the near side at the draft stage, so the far track clears the word.
-      const draft = ramp(3.4, 3.9, stage) * (1 - ramp(4.1, 4.7, stage));
+    if (stacked) {
       cameraPosition.x *= narrow;
       cameraLook.x *= narrow;
-      cameraPosition.z += draft;
-      cameraLook.z += draft;
     }
 
     parallaxX += (pointer.x - parallaxX) * 0.05;
     parallaxY += (pointer.y - parallaxY) * 0.05;
     const still = 1 - ramp(5.1, 5.85, stage);
-    camera.position.copy(cameraPosition).sub(cameraLook).multiplyScalar(mobile ? 1.2 + compare * 0.55 : 1).add(cameraLook);
+    camera.position.copy(cameraPosition).sub(cameraLook).multiplyScalar(stacked ? 1.05 + compare * 0.27 : 1).add(cameraLook);
     camera.position.x += parallaxX * 0.7 * still;
     camera.position.y -= parallaxY * 0.35 * still;
     camera.lookAt(cameraLook);
@@ -490,7 +519,7 @@ export function createLoopScene(canvas: HTMLCanvasElement, getStage: () => numbe
       turn.copy(a.turn).slerp(b.turn, blend);
       paper.scale.setScalar(a.size + (b.size - a.size) * blend);
     }
-    if (mobile) paper.position.x = paper.position.x * narrow - compare; // centres the pair at compare
+    if (stacked) paper.position.x = paper.position.x * narrow - compare * 1.3; // centres the pair at compare
     paper.quaternion.copy(turn);
 
     // Ledger and link lines exist only around the compare stage.

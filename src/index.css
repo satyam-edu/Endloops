@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/newsreader/wght-italic.css";
 @import "@fontsource-variable/hanken-grotesk";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
@@ -12,9 +13,11 @@
   --color-mist: #f4f8f7;
   --color-line: #dde5e3;
   --color-navy: #0f1f3d;
+  --color-navy-soft: #1c3160; /* the 3D track, a step lighter than the navy behind it */
+  --color-forest: #07503b; /* deep brand green for full sections */
   --color-slate: #4a5872;
   --color-green: #0a7d5a;
-  --color-green-bright: #0fad6c; /* sampled from the logo, non-text fills only */
+  --color-green-bright: #0fad6c; /* sampled from the logo: fills, and text on dark backgrounds only */
   --color-teal: #0b7c85;
   --color-blue: #2457d6; /* end-to-end solutions only */
   --color-purple: #6b43d9; /* standalone tools only */
@@ -52,8 +55,14 @@ html {
   outline-offset: 3px;
 }
 
+/* Anything on a dark or coloured background. */
 .on-navy :focus-visible {
   outline-color: var(--color-white);
+}
+
+.on-navy .btn-primary:hover {
+  background: var(--color-white);
+  color: var(--color-navy);
 }
 
 /* Elements focused by code, not by tabbing, don't need a ring. */
@@ -121,6 +130,71 @@ html {
   .btn-secondary:hover {
     background: var(--color-navy);
     color: var(--color-white);
+  }
+
+  .btn-outline-light {
+    border-color: var(--color-white);
+    color: var(--color-white);
+  }
+
+  .btn-outline-light:hover {
+    background: var(--color-white);
+    color: var(--color-navy);
+  }
+
+  /* Two voices. Heavy sans is the software doing the work; italic serif is the human part. */
+  .heading {
+    font-family: var(--font-body);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+
+  .accent {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .paper-shadow {
+    box-shadow: 0 30px 60px -20px color-mix(in srgb, var(--color-navy) 40%, transparent);
+  }
+}
+
+/* A stack of paper drawn in real 3D with CSS. */
+.paper-stack {
+  position: relative;
+  width: min(14rem, 50vw);
+  margin: 3rem 4rem;
+  aspect-ratio: 0.72;
+  transform: perspective(1400px) rotateX(56deg) rotateZ(-24deg);
+  transform-style: preserve-3d;
+}
+
+.paper-sheet {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  padding: 12%;
+  background:
+    repeating-linear-gradient(to bottom, var(--color-line) 0 3px, transparent 3px 24px) content-box,
+    var(--color-white);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-navy) 35%, transparent);
+  transform: translateZ(calc(var(--i) * 14px));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .paper-sheet {
+    animation: sheet-land 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--i) * 70ms);
+  }
+}
+
+@keyframes sheet-land {
+  from {
+    opacity: 0;
+    transform: translateZ(calc(var(--i) * 14px + 160px));
   }
 }
 
