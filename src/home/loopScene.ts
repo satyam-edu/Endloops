@@ -293,8 +293,7 @@ export function createLoopScene(
   };
 
   const renderer = new WebGLRenderer({ canvas, antialias: true });
-  // Phones draw at normal sharpness: four times the pixels cost far more than they show.
-  renderer.setPixelRatio(mobile ? 1 : Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = PCFShadowMap;
 

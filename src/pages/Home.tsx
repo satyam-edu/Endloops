@@ -40,9 +40,10 @@ const stages = [
 const STAGE_COUNT = stages.length + 2; // the hero and the sign-off, plus the stages above
 const viewport = "h-[calc(100svh-var(--nav))]";
 // Each block is taller than the screen, so its text holds still while the scene plays beneath it.
-const blockClass = "relative h-[170svh] motion-reduce:h-auto";
+const blockClass = (plain: boolean) => (plain ? "relative" : "relative h-[170svh] motion-reduce:h-auto");
 // The text always sits above the canvas (z-20 over z-10), so the scene can never cover it.
-const copyClass = `sticky top-(--nav) z-20 ${viewport} motion-reduce:static motion-reduce:h-auto`;
+const copyClass = (plain: boolean) =>
+  plain ? "z-20" : `sticky top-(--nav) z-20 ${viewport} motion-reduce:static motion-reduce:h-auto`;
 const innerClass = "page pt-[4svh] motion-reduce:py-16";
 const wordClass = "heading text-[min(15vw,11svh)] lg:text-[min(8vw,16svh)]";
 // Capped so the text can't reach the paper on the right, on any screen size.
@@ -74,7 +75,12 @@ const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 
 function hasWebGL() {
   try {
-    return Boolean(document.createElement("canvas").getContext("webgl2"));
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    // A software renderer (no graphics card) would run the scene far too slowly, so those visitors get the text only.
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    const name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "";
+    return !/swiftshader|llvmpipe|software/i.test(name);
   } catch {
     return false;
   }
@@ -88,11 +94,14 @@ export default function Home() {
   const heroCopy = useRef<HTMLDivElement>(null);
   const heroEnd = useRef<HTMLAnchorElement>(null);
   const [sceneReady, setSceneReady] = useState(false);
+  // No 3D for reduced motion, no WebGL or a software renderer: the text then simply flows down the page.
+  const [plain] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches || !hasWebGL(),
+  );
   const [signed, setSigned] = useState(false);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || !hasWebGL()) return;
+    if (plain) return;
 
     // Which stage we are on: 0 (hero) to 6 (sign-off). The number holds still while a block's
     // text is pinned, then moves on to the next one, so the scene and the text stay in step.
@@ -158,7 +167,7 @@ export default function Home() {
       scene.current?.destroy();
       scene.current = null;
     };
-  }, []);
+  }, [plain]);
 
   const signOff = () => {
     setSigned(true);
@@ -170,7 +179,7 @@ export default function Home() {
     <>
       <section ref={section} aria-label="How Endloops works" className="relative bg-navy">
         {/* Pinned by CSS sticky, so the browser's normal scrolling is never touched. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 motion-reduce:hidden">
+        <div aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 motion-reduce:hidden ${plain ? "hidden" : ""}`}>
           <div className={`sticky top-(--nav) ${viewport} overflow-hidden`}>
             <canvas
               ref={canvas}
@@ -179,8 +188,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className={`on-navy text-white ${blockClass}`}>
-          <div data-copy ref={heroCopy} className={copyClass}>
+        <div className={`on-navy text-white ${blockClass(plain)}`}>
+          <div data-copy ref={heroCopy} className={copyClass(plain)}>
             <div className={innerClass}>
               <p className="flex items-center gap-3 font-mono text-sm text-green-bright">
                 <span aria-hidden="true" className="h-px w-10 bg-green-bright" />
@@ -218,8 +227,8 @@ export default function Home() {
         </div>
 
         {stages.map((stage, index) => (
-          <article key={stage.ref} id={index === 0 ? "read" : undefined} className={`on-navy text-white ${blockClass}`}>
-            <div data-copy className={copyClass}>
+          <article key={stage.ref} id={index === 0 ? "read" : undefined} className={`on-navy text-white ${blockClass(plain)}`}>
+            <div data-copy className={copyClass(plain)}>
               <div className={innerClass}>
                 <Progress step={index + 1} />
                 <h2 className="mt-6">
@@ -233,8 +242,8 @@ export default function Home() {
         ))}
 
         {/* The screen turns white here. Without the 3D scene, this block supplies the white itself. */}
-        <article className={`text-navy motion-reduce:bg-white ${sceneReady ? "" : "bg-white"} ${blockClass}`}>
-          <div data-copy className={copyClass}>
+        <article className={`text-navy motion-reduce:bg-white ${sceneReady && !plain ? "" : "bg-white"} ${blockClass(plain)}`}>
+          <div data-copy className={copyClass(plain)}>
             <div className={innerClass}>
               <Progress step={stages.length + 1} dark={false} />
               <h2 className="mt-6">

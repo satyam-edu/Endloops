@@ -63,9 +63,12 @@ export default function HomeSections() {
           <span className="heading block text-green">retyping invoices.</span>
         </h2>
         {/* The same words again and again, because that is the problem. */}
-        <p aria-hidden="true" className="heading text-(length:--text-display) text-green">
-          <span className="block opacity-30">retyping invoices.</span>
-          <span className="block opacity-10">retyping invoices.</span>
+        <p
+          aria-hidden="true"
+          className="heading text-(length:--text-display) text-green [mask-image:linear-gradient(to_bottom,rgba(0,0,0,0.35),transparent)]"
+        >
+          <span className="block">retyping invoices.</span>
+          <span className="block">retyping invoices.</span>
         </p>
         <p className="mt-8 max-w-2xl text-slate">
           Much of a finance professional's day goes on work software can handle. It is repetitive and
