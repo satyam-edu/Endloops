@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import Tick from "../components/Tick";
-import HomeSections from "../home/HomeSections";
+// Everything below the scroll story loads after the first screen.
+const HomeSections = lazy(() => import("../home/HomeSections"));
 import type { LoopScene } from "../home/loopScene";
 
 const stages = [
@@ -121,18 +122,38 @@ export default function Home() {
     window.addEventListener("scroll", fadeCopy, { passive: true });
     fadeCopy();
 
-    // three.js loads after the page, so the hero text never waits for it.
+    // three.js loads shortly after the page has finished loading, so the hero text never waits for it.
     let cancelled = false;
-    import("../home/loopScene").then(({ createLoopScene }) => {
+    let timer = 0;
+    const start = () =>
+      import("../home/loopScene").then(({ createLoopScene }) => {
       if (cancelled) return;
       const heroInset = () =>
         heroEnd.current!.getBoundingClientRect().bottom - heroCopy.current!.getBoundingClientRect().top;
       scene.current = createLoopScene(canvas.current!, getStage, heroInset);
       setSceneReady(true);
     });
+    // The scene starts on the visitor's first move, or a couple of seconds after the page loads,
+    // whichever comes first. Until then the hero is just text, which is all it needs.
+    const events = ["pointerdown", "pointermove", "wheel", "touchstart", "keydown", "scroll"];
+    const begin = () => {
+      events.forEach((name) => window.removeEventListener(name, begin));
+      window.removeEventListener("load", whenLoaded);
+      window.clearTimeout(timer);
+      if (!cancelled) start();
+    };
+    const whenLoaded = () => {
+      timer = window.setTimeout(begin, 2000);
+    };
+    events.forEach((name) => window.addEventListener(name, begin, { passive: true }));
+    if (document.readyState === "complete") whenLoaded();
+    else window.addEventListener("load", whenLoaded, { once: true });
 
     return () => {
       cancelled = true;
+      events.forEach((name) => window.removeEventListener(name, begin));
+      window.removeEventListener("load", whenLoaded);
+      window.clearTimeout(timer);
       window.removeEventListener("scroll", fadeCopy);
       scene.current?.destroy();
       scene.current = null;
@@ -241,7 +262,9 @@ export default function Home() {
           </div>
         </article>
       </section>
-      <HomeSections />
+      <Suspense fallback={null}>
+        <HomeSections />
+      </Suspense>
     </>
   );
 }

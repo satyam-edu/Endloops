@@ -293,7 +293,8 @@ export function createLoopScene(
   };
 
   const renderer = new WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Phones draw at normal sharpness: four times the pixels cost far more than they show.
+  renderer.setPixelRatio(mobile ? 1 : Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = PCFShadowMap;
 
@@ -487,6 +488,8 @@ export function createLoopScene(
 
   const animate = (time: number) => {
     frame = onScreen ? requestAnimationFrame(animate) : 0;
+    // Phones draw at 30 frames a second, which looks the same here and halves the work.
+    if (mobile && time - lastTime < 30) return;
     const dt = Math.min((time - lastTime) / 1000, 0.05);
     lastTime = time;
     stage += (getStage() - stage) * (1 - Math.exp(-dt * 7));
