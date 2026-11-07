@@ -46,7 +46,7 @@ function ramp(from: number, to: number, x: number) {
 const TRACK_X = 7.2;
 const TRACK_Z = 4;
 function trackPoint(u: number, out: Vector3) {
-  return out.set(TRACK_X * Math.cos(u), 0.28 * Math.sin(3 * u), TRACK_Z * Math.sin(u));
+  return out.set(TRACK_X * Math.cos(u), 0.05 * Math.sin(3 * u), TRACK_Z * Math.sin(u));
 }
 function trackYaw(u: number) {
   return Math.atan2(-TRACK_X * Math.sin(u), TRACK_Z * Math.cos(u));
@@ -79,25 +79,28 @@ function arcAngle(turns: number) {
   return ((low + fraction) / ARC_STEPS) * Math.PI * 2;
 }
 
-function buildTrack(color: string) {
+// The belt's top surface sits this far below the track line.
+const BELT_TOP = -0.03;
+// A strip that follows the track: its half width, how far it sits to one side, its top height and its depth.
+function buildTrack(color: string, halfWidth: number, lateral: number, lift: number, thickness: number) {
   const positions: number[] = [];
   const indices: number[] = [];
   const point = new Vector3();
   const segments = 256;
-  const halfWidth = 0.95;
-  const thickness = 0.32;
   for (let i = 0; i <= segments; i++) {
     const u = (i / segments) * Math.PI * 2;
     trackPoint(u, point);
     const yaw = trackYaw(u);
+    const centreX = point.x + Math.cos(yaw) * lateral;
+    const centreZ = point.z - Math.sin(yaw) * lateral;
     const sideX = Math.cos(yaw) * halfWidth;
     const sideZ = -Math.sin(yaw) * halfWidth;
-    const top = point.y - 0.03;
+    const top = point.y + BELT_TOP + lift;
     // Four corners of the slab at this point along the track.
-    positions.push(point.x + sideX, top, point.z + sideZ);
-    positions.push(point.x - sideX, top, point.z - sideZ);
-    positions.push(point.x + sideX, top - thickness, point.z + sideZ);
-    positions.push(point.x - sideX, top - thickness, point.z - sideZ);
+    positions.push(centreX + sideX, top, centreZ + sideZ);
+    positions.push(centreX - sideX, top, centreZ - sideZ);
+    positions.push(centreX + sideX, top - thickness, centreZ + sideZ);
+    positions.push(centreX - sideX, top - thickness, centreZ - sideZ);
     if (i < segments) {
       const a = i * 4;
       indices.push(a, a + 4, a + 1, a + 1, a + 4, a + 5); // top
@@ -259,7 +262,7 @@ const FLAT = new Quaternion().setFromEuler(new Euler(-Math.PI / 2, 0, 0));
 const STACK_X = 1.9; // where the sheets pile up at the draft stage
 // Text sits at the top of the screen, so every pose keeps the track in the lower part of the frame.
 const poses = [
-  { camera: [0, 5.5, 15], look: [0, 3.2, 0], paper: [0, 0, 0], turn: FLAT, size: 1 },
+  { camera: [0, 8, 13.5], look: [0, 2.6, 0], paper: [0, 0, 0], turn: FLAT, size: 1 },
   { camera: [0, 3.2, 11], look: [0, 2.6, 0], paper: [1.93, 2.3, 3], turn: FACING, size: 1 },
   { camera: [0, 3.2, 12], look: [0, 2.6, 0], paper: [1.05, 2.15, 3], turn: FACING, size: 1 },
   { camera: [0, 5.5, 13], look: [0, 3, 0], paper: [2.4, 2, 1], turn: FACING, size: 1 },
@@ -276,7 +279,7 @@ export function createLoopScene(
 ): LoopScene {
   const mobile = window.innerWidth < 768;
   const sheetCount = mobile ? 60 : 400;
-  const heroCount = mobile ? 12 : 24;
+  const heroCount = mobile ? 12 : 28;
   const stacked = window.innerWidth < 1024; // matches the lg: breakpoint in Home.tsx
   const narrow = stacked ? 0.15 : 1; // narrow screens pull everything towards the centre
   const stackX = STACK_X * narrow;
@@ -310,6 +313,8 @@ export function createLoopScene(
   sun.shadow.camera.top = 8;
   sun.shadow.camera.bottom = -8;
   sun.shadow.radius = 5;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
   scene.add(sun);
 
   const ground = new Mesh(new PlaneGeometry(60, 60), new ShadowMaterial({ opacity: 0.3 }));
@@ -325,13 +330,28 @@ export function createLoopScene(
   floorMaterial.transparent = true;
   scene.add(floor);
 
-  scene.add(buildTrack(token("navy-soft")));
+  // A conveyor: a dark frame, the belt running in it, and a rail along each side.
+  const steel = (amount: number) => `#${new Color(colours.navy).lerp(new Color("white"), amount).getHexString()}`;
+  scene.add(buildTrack(`#${new Color(colours.navy).multiplyScalar(0.45).getHexString()}`, 1.15, 0, -0.02, 0.55));
+  scene.add(buildTrack(token("navy-soft"), 0.92, 0, 0.01, 0.02));
+  scene.add(buildTrack(steel(0.2), 0.05, 1.1, 0.1, 0.12));
+  scene.add(buildTrack(steel(0.2), 0.05, -1.1, 0.1, 0.12));
   scene.add(buildRulerMarks(colours.bright));
+
+  // Cross-lines on the belt. They move with the sheets, so you can see the belt itself running.
+  const BELT_LINES = 90;
+  const beltLines = new InstancedMesh(
+    new BoxGeometry(1.84, 0.004, 0.03),
+    new MeshBasicMaterial({ color: steel(0.15) }),
+    BELT_LINES,
+  );
+  beltLines.frustumCulled = false;
+  scene.add(beltLines);
 
   // Sheets on the track: one instanced mesh, so hundreds of sheets cost one draw call.
   const sheetTexture = buildSheetTexture(colours.line);
   const sheets = new InstancedMesh(
-    new BoxGeometry(0.95, 0.012, 1.3),
+    new BoxGeometry(1.3, 0.012, 1.8),
     new MeshLambertMaterial({ map: sheetTexture }),
     sheetCount,
   );
@@ -343,9 +363,16 @@ export function createLoopScene(
   const sheetTurn = Array.from({ length: sheetCount }, (_, i) =>
     i < heroCount ? i / heroCount : ((i * 2.399963) % (Math.PI * 2)) / (Math.PI * 2),
   );
+  // A steady scatter, so no two sheets lie exactly alike. Every sheet keeps its own turn and offset.
+  const scatter = (i: number, salt: number) => ((i * salt) % 1) - 0.5;
   const sheetSide = Array.from({ length: sheetCount }, (_, i) =>
-    i < heroCount ? 0 : ((i * 0.618) % 1) * 1.1 - 0.55,
+    i < heroCount ? scatter(i, 0.754877) * 0.2 : scatter(i, 0.618) * 1.2,
   );
+  const sheetTwist = Array.from({ length: sheetCount }, (_, i) =>
+    i < heroCount ? scatter(i, 0.569840) * 0.22 : scatter(i, 0.382) * 1.6,
+  );
+  // Sheets overlap like a shingled stream, each resting a little higher than the one beneath.
+  const sheetLayer = Array.from({ length: sheetCount }, (_, i) => 0.012 + (i % 5) * 0.0075 + (i >= heroCount ? (i % 7) * 0.004 : 0));
   const flagged = [3, Math.floor(heroCount * 0.6)];
   // The working paper rides in the slot of this sheet, so the two never overlap.
   const paperSlot = Math.floor(heroCount * 0.3);
@@ -472,8 +499,6 @@ export function createLoopScene(
 
     const gather = ramp(3.3, 3.95, stage) * (1 - ramp(4.1, 4.8, stage));
     const crowd = ramp(4.2, 5, stage) * (1 - ramp(5.2, 5.8, stage) * (1 - resume));
-    // Sheets lie flat in the close-ups, where a tilted sheet near the camera looks like a spike.
-    const closeUp = Math.max(ramp(0.3, 0.9, stage) * (1 - ramp(2.1, 2.7, stage)), ramp(5.2, 5.8, stage));
     const checked = ramp(2.3, 3, stage);
     const tip = checked * (1 - ramp(3.4, 3.9, stage));
 
@@ -483,20 +508,16 @@ export function createLoopScene(
       const u = arcAngle(sheetTurn[i] + travel);
       trackPoint(u, point);
       const yaw = trackYaw(u);
-      const side = sheetSide[i];
+      // The flagged sheets sit a little skewed and pushed out of line: the ones that do not fit.
+      const side = sheetSide[i] + (isFlagged ? tip * 0.3 : 0);
       const x = point.x + Math.cos(yaw) * side;
       const z = point.z - Math.sin(yaw) * side;
 
-      // Hero sheets leave the track and stack up under the working paper at the draft stage.
+      // Hero sheets leave the belt and stack up under the working paper at the draft stage.
       const g = hero ? gather : 0;
-      dummy.position.set(
-        x * (1 - g) + stackX * g,
-        (point.y + 0.3 * (1 - closeUp) + (isFlagged ? tip * 0.4 : 0)) * (1 - g) + g * (0.06 + i * 0.012),
-        z * (1 - g),
-      );
-      // Sheets ride tilted, like files on a conveyor, and lie flat once stacked.
-      const tilt = -0.32 * (1 - g) * (1 - closeUp);
-      dummy.rotation.set(tilt, yaw * (1 - g), 0);
+      const rest = point.y + BELT_TOP + sheetLayer[i] + (isFlagged ? tip * 0.02 : 0);
+      dummy.position.set(x * (1 - g) + stackX * g, rest * (1 - g) + g * (0.06 + i * 0.012), z * (1 - g));
+      dummy.rotation.set(0, (yaw + sheetTwist[i] + (isFlagged ? tip * 0.35 : 0)) * (1 - g), 0);
       // The sheet whose slot the working paper rides in stays out of the way until the paper lifts off.
       const slot = i === paperSlot ? ramp(0.1, 0.9, stage) : 1;
       const size = (hero ? slot : crowd * 0.55) * (1 + g * 1.24);
@@ -511,6 +532,17 @@ export function createLoopScene(
     sheets.instanceMatrix.needsUpdate = true;
     sheets.instanceColor!.needsUpdate = true;
 
+    for (let k = 0; k < BELT_LINES; k++) {
+      const u = arcAngle(k / BELT_LINES + travel);
+      trackPoint(u, point);
+      dummy.position.set(point.x, point.y + BELT_TOP + 0.014, point.z);
+      dummy.rotation.set(0, trackYaw(u), 0);
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      beltLines.setMatrixAt(k, dummy.matrix);
+    }
+    beltLines.instanceMatrix.needsUpdate = true;
+
     const compare = ramp(1.35, 1.9, stage) * (1 - ramp(2.2, 2.7, stage));
 
     // When the machine stops, the whole screen turns to white paper and the track fades away.
@@ -523,8 +555,8 @@ export function createLoopScene(
     fog.far = 30 + (9.5 + resume * 12.5 - 30) * whiteOut;
     // At the draft stage the far track fades out, so the stack has the stage to itself.
     const draftFocus = ramp(3.3, 3.9, stage) * (1 - ramp(4.1, 4.7, stage));
-    fog.near += (10 - fog.near) * draftFocus;
-    fog.far += (13 - fog.far) * draftFocus;
+    fog.near += (7.4 - fog.near) * draftFocus;
+    fog.far += (11 - fog.far) * draftFocus;
     floorMaterial.opacity = 0.14 * (1 - whiteOut);
     (ground.material as ShadowMaterial).opacity = 0.3 * (1 - whiteOut * (1 - resume * 0.5));
 
@@ -532,7 +564,7 @@ export function createLoopScene(
     // On the hero the ring is pushed down until it clears the text, then eases back as the story starts.
     // Phones always sit a little lower, to leave room for the text above the scene.
     const base = stacked ? viewHeight * 0.22 : 0;
-    const ringTop = viewHeight * (stacked ? 0.8 : 0.64);
+    const ringTop = viewHeight * (stacked ? 0.66 : 0.53);
     const wanted = base + Math.max(0, getHeroInset() + 16 - ringTop) * (1 - ramp(0, 0.7, stage));
     if (Math.abs(wanted - viewShift) > 0.5) applyShift(wanted);
 
@@ -558,11 +590,14 @@ export function createLoopScene(
 
     // At stage 0 the paper rides the track like any other sheet, then lifts off.
     if (index === 0) {
-      // Same pose as the sheets around it (height, lean and size), so it looks like one of them.
+      // Same pose as the sheets around it, lying on the belt, so it looks like one of them.
       const u = arcAngle(sheetTurn[paperSlot] + travel);
       trackPoint(u, point);
-      point.y += 0.3 * (1 - closeUp);
-      flatOnTrack.setFromEuler(new Euler(-Math.PI / 2 - 0.32 * (1 - closeUp), trackYaw(u), 0, "YXZ"));
+      const yaw = trackYaw(u) + sheetTwist[paperSlot];
+      point.x += Math.cos(yaw) * sheetSide[paperSlot];
+      point.z -= Math.sin(yaw) * sheetSide[paperSlot];
+      point.y += BELT_TOP + sheetLayer[paperSlot] + 0.008;
+      flatOnTrack.setFromEuler(new Euler(-Math.PI / 2, yaw, 0, "YXZ"));
       paper.position.lerpVectors(point, to.fromArray(b.paper), blend);
       turn.copy(flatOnTrack).slerp(b.turn, blend);
       paper.scale.setScalar(0.45 + (b.size - 0.45) * blend);
